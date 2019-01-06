@@ -570,6 +570,26 @@ impl Docker {
             .and_then(ignore_result)
     }
 
+    /// Build an image from a tar archive with a Dockerfile in it.
+    ///
+    /// # API
+    /// /build?
+    pub fn build_image(&self, options: ContainerBuildOptions, tar_path: &Path) -> Result<Response> {
+        let mut headers = self.headers().clone();
+        let application_tar = Mime(TopLevel::Application, SubLevel::Ext("x-tar".into()), vec![]);
+        headers.set::<ContentType>(ContentType(application_tar));
+        let res = self.http_client().post_file(
+            &headers,
+            &format!("/build?{}", options.to_url_params()),
+            tar_path,
+        )?;
+        if !res.status.is_success() {
+            return Err(serde_json::from_reader::<_, DockerError>(res)?.into());
+        }
+
+        Ok(res)
+    }
+
     /// Create an image by pulling it from registry
     ///
     /// # API
@@ -577,7 +597,8 @@ impl Docker {
     ///
     /// # NOTE
     /// When control returns from this function, creating job may not have been completed.
-    /// For waiting the completion of the job, cunsuming response like `create_image("hello-world", "linux").map(|r| r.for_each(|_| ()));`.
+    /// For waiting the completion of the job, consuming response like
+    /// `create_image("hello-world", "linux").map(|r| r.for_each(|_| ()));`.
     ///
     /// # TODO
     /// - Typing result iterator like image::ImageStatus.
@@ -809,7 +830,9 @@ impl Docker {
             .and_then(api_result)
     }
 
-    /// Get changes on a container's filesystem
+    /// Get changes on a container's filesystem.
+    ///
+    /// (This is the same as `docker container diff` command.)
     ///
     /// # API
     /// /containers/{id}/changes
